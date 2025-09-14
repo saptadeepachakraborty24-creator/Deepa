@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Grade Analyzer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 450px; height: 150px; }
+    #output { margin-top: 20px; padding: 10px; border: 1px solid #333; background: #f9f9f9; }
+    h2 { color: darkblue; }
+    .topper { color: green; font-weight: bold; }
+    .summary { margin-top: 15px; padding: 10px; border: 1px solid #666; background: #eef; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #444; padding: 8px; text-align: center; }
+    th { background-color: #ddd; cursor: pointer; }
+    th:hover { background-color: #bbb; }
+    .chart-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+    .chart-box { width: 300px; height: 250px; } /* smaller size */
+    canvas { width: 100% !important; height: 100% !important; }
+  </style>
+</head>
+<body>
+  <h2>📊 Student Grade Analyzer</h2>
+
+  <p>Paste your <b>grades.txt</b> content here:</p>
+  <textarea id="gradesInput"></textarea><br><br>
+  <button onclick="analyzeGrades()">Analyze Grades</button>
+
+  <div id="output"></div>
+
+  <div class="chart-container">
+    <div class="chart-box"><canvas id="barChart"></canvas></div>
+    <div class="chart-box"><canvas id="pieChart"></canvas></div>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    let barChart, pieChart;
+    let studentsData = [];
+
+    function analyzeGrades() {
+      const text = document.getElementById("gradesInput").value.trim();
+      if (!text) {
+        document.getElementById("output").innerHTML = "<b>No data entered!</b>";
+        return;
+      }
+
+      const students = text.split("Name:").filter(s => s.trim() !== "");
+      studentsData = []; 
+
+      let totalAvg = 0, count = 0;
+      let topper = { name: "", avg: 0 };
+      let gradeCount = { A:0, B:0, C:0, D:0, F:0 };
+
+      students.forEach(s => {
+        const nameMatch = s.match(/(.*)\n/);
+        const avgMatch = s.match(/Average:([\d.]+)/);
+        const gradeMatch = s.match(/Grade:([A-F])/);
+
+        if (nameMatch && avgMatch && gradeMatch) {
+          const name = nameMatch[1].trim();
+          const avg = parseFloat(avgMatch[1]);
+          const grade = gradeMatch[1];
+
+          studentsData.push({ name, avg, grade });
+
+          totalAvg += avg;
+          count++;
+          if (avg > topper.avg) topper = { name, avg };
+          gradeCount[grade]++;
+        }
+      });
+
+      renderTable(studentsData);
+
+      let result = "";
+      if (count > 0) {
+        let classAvg = (totalAvg / count).toFixed(2);
+        result += `<div class="summary"> 
+          <p class="topper">🏆 Topper: ${topper.name} (Avg: ${topper.avg})</p>
+          <p>📌 Class Average: ${classAvg}</p>
+          <p>📊 Grade Distribution → 
+             A: ${gradeCount.A}, 
+             B: ${gradeCount.B}, 
+             C: ${gradeCount.C}, 
+             D: ${gradeCount.D}, 
+             F: ${gradeCount.F}
+          </p>
+        </div>`;
+      }
+
+      document.getElementById("output").insertAdjacentHTML("beforeend", result);
+
+      drawCharts(gradeCount);
+    }
+
+    function renderTable(data) {
+      let table = `<table id="gradesTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable('name')">Student Name ⬍</th>
+            <th onclick="sortTable('avg')">Average ⬍</th>
+            <th onclick="sortTable('grade')">Grade ⬍</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      
+      data.forEach(s => {
+        table += `<tr><td>${s.name}</td><td>${s.avg}</td><td>${s.grade}</td></tr>`;
+      });
+
+      table += `</tbody></table>`;
+
+      document.getElementById("output").innerHTML = table;
+    }
+
+    function sortTable(key) {
+      studentsData.sort((a, b) => {
+        if (key === "avg") return b.avg - a.avg;
+        if (key === "grade") return a.grade.localeCompare(b.grade);
+        return a.name.localeCompare(b.name);
+      });
+      renderTable(studentsData);
+    }
+
+    function drawCharts(gradeCount) {
+      const labels = ["A", "B", "C", "D", "F"];
+      const data = [gradeCount.A, gradeCount.B, gradeCount.C, gradeCount.D, gradeCount.F];
+      const colors = ["#4caf50", "#2196f3", "#ff9800", "#f44336", "#9e9e9e"];
+
+      if (barChart) barChart.destroy();
+      if (pieChart) pieChart.destroy();
+
+      // Bar Chart
+      const ctxBar = document.getElementById("barChart").getContext("2d");
+      barChart = new Chart(ctxBar, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Number of Students",
+            data: data,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: "Grade Distribution (Bar)" }
+          },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      // Pie Chart
+      const ctxPie = document.getElementById("pieChart").getContext("2d");
+      pieChart = new Chart(ctxPie, {
+        type: "pie",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Grade Distribution",
+            data: data,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: true, text: "Grade Distribution (Pie)" }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
